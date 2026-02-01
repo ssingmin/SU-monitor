@@ -7,17 +7,14 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        /* === PC 버전 오리지널 스타일 복구 === */
+        /* === 스타일 (기존과 동일) === */
         * { box-sizing: border-box; }
         body { margin: 0; padding: 10px; font-family: 'Segoe UI', sans-serif; background: #f4f6f9; height: 100vh; display: flex; flex-direction: column; gap: 10px; }
         
         .box { background: white; border: 1px solid #ccc; border-radius: 4px; padding: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
         .disabled-state { background-color: #f9f9f9 !important; filter: grayscale(100%); opacity: 0.6; pointer-events: none; }
         
-        /* 그래프 영역 */
         .section-graph { flex: 6; position: relative; min-height: 200px; }
-        
-        /* 테이블 영역 */
         .section-table { flex: 4; display: flex; flex-direction: column; overflow: hidden; gap: 0; padding-bottom: 0; } 
         .table-scroll { flex: 1; overflow: auto; border: 1px solid #ddd; display: flex; flex-direction: column; }
         
@@ -28,7 +25,6 @@
         
         .active-cell { background-color: #fff3cd !important; border: 2px solid #ffc107 !important; color: #d32f2f; }
 
-        /* 스톱워치 바 */
         .stopwatch-panel {
             background-color: #222; padding: 5px; border-radius: 4px; border: 2px solid #444;
             height: 30px; margin-top: 5px; display: flex; align-items: center; position: relative; overflow: hidden;
@@ -39,15 +35,8 @@
         }
         .progress-bar.resizing { transition: none !important; }
 
-        /* 하단 컨트롤 패널 */
         .section-footer { flex: 0 0 60px; display: flex; align-items: center; justify-content: space-between; gap: 5px; width: 100%; }
-        
-        /* 중앙 패널 (모드에 따라 내용 변경) */
-        .footer-center { 
-            flex: 1; display: none; align-items: center; justify-content: center; 
-            background: #fff; border: 1px solid #ccc; border-radius: 4px; 
-            padding: 5px; height: 100%; gap: 10px; 
-        }
+        .footer-center { flex: 1; display: none; align-items: center; justify-content: center; background: #fff; border: 1px solid #ccc; border-radius: 4px; padding: 5px; height: 100%; gap: 10px; }
 
         #panelTestMode { display: flex; gap: 10px; align-items: center; width: 100%; justify-content: center; } 
         #panelArduinoMode { display: none; gap: 10px; align-items: center; width: 100%; justify-content: center; } 
@@ -59,28 +48,18 @@
         #btnTestMode { border-left: 5px solid #ff9800; color: #e65100; }
         #btnDisconnect { background-color: #6c757d; color: white; border: none; display: none; }
         #btnExport { border-right: 5px solid #17a2b8; color: #006064; }
+        #btnReset { border-right: 5px solid #d32f2f; color: #c62828; }
 
-        #btnManualTrigger { 
-            background-color: #607d8b; color: white; border: none; width: 100%; max-width: 200px;
-            box-shadow: 0 4px #455a64; transform: translateY(0); 
-        }
-        #btnManualTrigger:active, #btnManualTrigger.remote-active { 
-            background-color: #ff5722 !important; box-shadow: 0 0 #d84315 !important; transform: translateY(4px) !important; 
-        }
+        #btnManualTrigger { background-color: #607d8b; color: white; border: none; width: 100%; max-width: 200px; box-shadow: 0 4px #455a64; transform: translateY(0); }
+        #btnManualTrigger:active, #btnManualTrigger.remote-active { background-color: #ff5722 !important; box-shadow: 0 0 #d84315 !important; transform: translateY(4px) !important; }
 
         .status-dot { width: 10px; height: 10px; background-color: #ccc; border-radius: 50%; display: inline-block; }
         .status-dot.active { background-color: #00ff00; box-shadow: 0 0 8px #00ff00; }
-        
         .mini-timer { font-family: 'Courier New', monospace; font-size: 18px; font-weight: bold; color: #555; min-width: 70px; text-align: right; }
-
     </style>
 </head>
 <body>
-
-    <div class="box section-graph disabled-state" id="graphArea">
-        <canvas id="myChart"></canvas>
-    </div>
-
+    <div class="box section-graph disabled-state" id="graphArea"><canvas id="myChart"></canvas></div>
     <div class="box section-table disabled-state" id="tableArea">
         <div class="table-scroll">
             <table id="dataTable">
@@ -93,36 +72,28 @@
         </div>
         <div class="stopwatch-panel"><div id="progressBar" class="progress-bar"></div></div>
     </div>
-
     <div class="section-footer">
         <div style="display: flex; gap: 5px;">
             <button id="btnConnect">🔌 장치 연결</button>
             <button id="btnTestMode">🧪 테스트</button>
             <button id="btnDisconnect">❌ 종료</button>
         </div>
-        
         <div class="footer-center" id="footerCenter">
-            
-            <div id="panelTestMode">
-                <button id="btnManualTrigger">🖱️ 꾹 누르세요</button>
-            </div>
-
+            <div id="panelTestMode"><button id="btnManualTrigger">🖱️ 꾹 누르세요</button></div>
             <div id="panelArduinoMode">
                 <span style="font-weight:bold; color:#555; display:flex; align-items:center; gap:5px;">
-                    <span class="status-dot" id="statusDot"></span> 
-                    <span id="statusText">신호 대기...</span>
+                    <span class="status-dot" id="statusDot"></span><span id="statusText">신호 대기...</span>
                 </span>
             </div>
-
-            <div style="width: 1px; height: 20px; background: #ddd;"></div>
-            <span id="miniTimerDisplay" class="mini-timer">0 ms</span>
+            <div style="width: 1px; height: 20px; background: #ddd;"></div><span id="miniTimerDisplay" class="mini-timer">0 ms</span>
         </div>
-
-        <button id="btnExport">💾 저장</button>
+        <div style="display: flex; gap: 5px;">
+            <button id="btnReset">🔄 리셋</button>
+            <button id="btnExport">💾 저장</button>
+        </div>
     </div>
 
     <script>
-        // === 1. 차트 설정 ===
         const ctx = document.getElementById('myChart');
         Chart.defaults.font.size = 14; 
         const myChart = new Chart(ctx, {
@@ -131,193 +102,83 @@
             options: { responsive: true, maintainAspectRatio: false, animation: { duration: 0 } }
         });
 
-        // === 2. 전역 변수 ===
         let port, reader, inputDone, outputStream, inputStream;
-        let isConnected = false;
-        let currentMode = 'NONE'; // 'USB' or 'TEST'
-        let logBuffer = [];
-        let displayData = [0,0,0,0,0,0,0,0,0,0];
-        let displayTimes = ['-','-','-','-','-','-','-','-','-','-'];
-        let currentIndex = 0;
-        let serialBuffer = "";
+        let isConnected = false; let currentMode = 'NONE';
+        let logBuffer = []; let displayData = [0,0,0,0,0,0,0,0,0,0]; let displayTimes = ['-','-','-','-','-','-','-','-','-','-'];
+        let currentIndex = 0; let serialBuffer = "";
+        let startTime = 0; let timerInterval = null; let currentMaxScale = 2000;
+        const progressBar = document.getElementById('progressBar'); const miniTimerDisplay = document.getElementById('miniTimerDisplay');
+        const statusDot = document.getElementById('statusDot'); const statusText = document.getElementById('statusText'); const btnTrigger = document.getElementById('btnManualTrigger');
 
-        // 타이머 관련
-        let startTime = 0;
-        let timerInterval = null;
-        let currentMaxScale = 2000;
-        const progressBar = document.getElementById('progressBar');
-        const miniTimerDisplay = document.getElementById('miniTimerDisplay');
-        const statusDot = document.getElementById('statusDot');
-        const statusText = document.getElementById('statusText');
-        const btnTrigger = document.getElementById('btnManualTrigger');
-
-        // === 3. 모드 진입/해제 로직 ===
         function setMode(mode) {
             currentMode = mode;
             if (mode === 'NONE') {
-                $('#graphArea, #tableArea').addClass('disabled-state');
-                $('#footerCenter').hide();
-                $('#btnConnect, #btnTestMode').show();
-                $('#btnDisconnect').hide();
-                resetUI();
+                $('#graphArea, #tableArea').addClass('disabled-state'); $('#footerCenter').hide();
+                $('#btnConnect, #btnTestMode').show(); $('#btnDisconnect').hide(); resetUI();
             } else {
-                $('#graphArea, #tableArea').removeClass('disabled-state');
-                $('#footerCenter').css('display', 'flex');
-                $('#btnConnect, #btnTestMode').hide();
-                $('#btnDisconnect').show();
-                
-                if (mode === 'TEST') {
-                    $('#panelTestMode').css('display', 'flex');
-                    $('#panelArduinoMode').hide();
-                } else {
-                    $('#panelTestMode').hide();
-                    $('#panelArduinoMode').css('display', 'flex');
-                    statusText.innerText = "신호 대기...";
-                }
+                $('#graphArea, #tableArea').removeClass('disabled-state'); $('#footerCenter').css('display', 'flex');
+                $('#btnConnect, #btnTestMode').hide(); $('#btnDisconnect').show();
+                if (mode === 'TEST') { $('#panelTestMode').css('display', 'flex'); $('#panelArduinoMode').hide(); }
+                else { $('#panelTestMode').hide(); $('#panelArduinoMode').css('display', 'flex'); statusText.innerText = "신호 대기..."; }
             }
         }
 
-        // === 4. USB 연결 (Web Serial) ===
         async function connectSerial() {
             if (!("serial" in navigator)) return alert("Web Serial 미지원 브라우저입니다.");
             try {
-                port = await navigator.serial.requestPort();
-                await port.open({ baudRate: 115200 });
-                
-                const textDecoder = new TextDecoderStream();
-                inputDone = port.readable.pipeTo(textDecoder.writable);
-                reader = textDecoder.readable.getReader();
-
-                setMode('USB');
-                isConnected = true;
-                readLoop();
-            } catch (err) {
-                console.error(err);
-                alert("연결 실패: " + err.message);
-                setMode('NONE');
-            }
+                port = await navigator.serial.requestPort(); await port.open({ baudRate: 115200 });
+                const textDecoder = new TextDecoderStream(); inputDone = port.readable.pipeTo(textDecoder.writable); reader = textDecoder.readable.getReader();
+                setMode('USB'); isConnected = true; readLoop();
+            } catch (err) { console.error(err); alert("연결 실패: " + err.message); setMode('NONE'); }
         }
-
         async function disconnectAll() {
-            if (currentMode === 'USB') {
-                if (reader) { await reader.cancel(); await inputDone.catch(() => {}); reader = null; inputDone = null; }
-                if (port) { await port.close(); port = null; }
-            }
-            isConnected = false;
-            setMode('NONE');
+            if (currentMode === 'USB') { if (reader) { await reader.cancel(); await inputDone.catch(() => {}); reader = null; inputDone = null; } if (port) { await port.close(); port = null; } }
+            isConnected = false; setMode('NONE');
         }
-
-        // === 5. 데이터 읽기 루프 ===
         async function readLoop() {
             while (true) {
-                const { value, done } = await reader.read();
-                if (done) { reader.releaseLock(); break; }
-                if (value) {
-                    serialBuffer += value;
-                    if (serialBuffer.includes('\n')) {
-                        const lines = serialBuffer.split(/\r?\n/);
-                        serialBuffer = lines.pop(); 
-                        for (const line of lines) {
-                            if (!line.trim()) continue;
-                            if (line.includes('[FALL]')) startMeasurementUI();
-                            const pulseMatch = line.match(/Pulse Width:\s*(\d+)/);
-                            if (pulseMatch) stopMeasurementUI(parseInt(pulseMatch[1]));
-                        }
-                    }
-                }
+                const { value, done } = await reader.read(); if (done) { reader.releaseLock(); break; }
+                if (value) { serialBuffer += value; if (serialBuffer.includes('\n')) { const lines = serialBuffer.split(/\r?\n/); serialBuffer = lines.pop(); for (const line of lines) { if (!line.trim()) continue; if (line.includes('[FALL]')) startMeasurementUI(); const pulseMatch = line.match(/Pulse Width:\s*(\d+)/); if (pulseMatch) stopMeasurementUI(parseInt(pulseMatch[1])); } } }
             }
         }
 
-        // === 6. UI 시각화 (공통) ===
         function startMeasurementUI() {
-            if (startTime !== 0) return;
-            startTime = Date.now();
-            currentMaxScale = 2000;
-            
-            if(currentMode === 'USB') { statusDot.classList.add('active'); statusText.innerText = "측정 중..."; }
-            else { btnTrigger.classList.add('remote-active'); btnTrigger.innerText = "측정 중..."; }
-
-            progressBar.classList.add('resizing');
-            progressBar.style.width = '0%';
-            void progressBar.offsetWidth; 
-            progressBar.classList.remove('resizing'); 
-            progressBar.style.backgroundColor = "#0066ff";
-            miniTimerDisplay.style.color = "#0066ff";
-            
-            if(timerInterval) clearInterval(timerInterval);
-            timerInterval = setInterval(() => {
-                const elapsed = Date.now() - startTime;
-                if (elapsed > currentMaxScale) { currentMaxScale *= 2; progressBar.classList.add('resizing'); }
-                else { progressBar.classList.remove('resizing'); }
-                let percent = (elapsed / currentMaxScale) * 100; if(percent > 100) percent = 100;
-                progressBar.style.width = percent + '%';
-                miniTimerDisplay.innerText = elapsed + " ms";
-            }, 16);
+            if (startTime !== 0) return; startTime = Date.now(); currentMaxScale = 2000;
+            if(currentMode === 'USB') { statusDot.classList.add('active'); statusText.innerText = "측정 중..."; } else { btnTrigger.classList.add('remote-active'); btnTrigger.innerText = "측정 중..."; }
+            progressBar.classList.add('resizing'); progressBar.style.width = '0%'; void progressBar.offsetWidth; progressBar.classList.remove('resizing'); progressBar.style.backgroundColor = "#0066ff"; miniTimerDisplay.style.color = "#0066ff";
+            if(timerInterval) clearInterval(timerInterval); timerInterval = setInterval(() => { const elapsed = Date.now() - startTime; if (elapsed > currentMaxScale) { currentMaxScale *= 2; progressBar.classList.add('resizing'); } else { progressBar.classList.remove('resizing'); } let percent = (elapsed / currentMaxScale) * 100; if(percent > 100) percent = 100; progressBar.style.width = percent + '%'; miniTimerDisplay.innerText = elapsed + " ms"; }, 16);
         }
-
         function stopMeasurementUI(finalValue) {
-            if(timerInterval) clearInterval(timerInterval);
-            startTime = 0;
-            timerInterval = null;
-            
-            if(currentMode === 'USB') { statusDot.classList.remove('active'); statusText.innerText = "측정 완료"; }
-            else { btnTrigger.classList.remove('remote-active'); btnTrigger.innerText = "🖱️ 꾹 누르세요"; }
-
-            progressBar.classList.remove('resizing');
-            progressBar.style.width = '100%';
-            progressBar.style.backgroundColor = "#00ff00";
-            miniTimerDisplay.innerText = finalValue + " ms";
-            miniTimerDisplay.style.color = "#00ff00";
-
+            if(timerInterval) clearInterval(timerInterval); startTime = 0; timerInterval = null;
+            if(currentMode === 'USB') { statusDot.classList.remove('active'); statusText.innerText = "측정 완료"; } else { btnTrigger.classList.remove('remote-active'); btnTrigger.innerText = "🖱️ 꾹 누르세요"; }
+            progressBar.classList.remove('resizing'); progressBar.style.width = '100%'; progressBar.style.backgroundColor = "#00ff00"; miniTimerDisplay.innerText = finalValue + " ms"; miniTimerDisplay.style.color = "#00ff00";
             pushData(finalValue);
         }
 
-        // === 7. 테스트 모드 로직 (가상 시뮬레이션) ===
-        $('#btnTestMode').click(function() {
-            setMode('TEST');
-        });
-        
-        // 마우스 누름 -> 시작
-        btnTrigger.addEventListener('mousedown', startMeasurementUI);
-        btnTrigger.addEventListener('touchstart', function(e) { e.preventDefault(); startMeasurementUI(); });
+        $('#btnTestMode').click(function() { setMode('TEST'); });
+        btnTrigger.addEventListener('mousedown', startMeasurementUI); btnTrigger.addEventListener('touchstart', function(e) { e.preventDefault(); startMeasurementUI(); });
+        function finishTestTrigger() { if (startTime === 0 || currentMode !== 'TEST') return; const duration = Date.now() - startTime; stopMeasurementUI(duration); }
+        btnTrigger.addEventListener('mouseup', finishTestTrigger); btnTrigger.addEventListener('mouseleave', finishTestTrigger); btnTrigger.addEventListener('touchend', finishTestTrigger);
 
-        // 마우스 뗌 -> 종료 (시간 계산)
-        function finishTestTrigger() {
-            if (startTime === 0 || currentMode !== 'TEST') return;
-            const duration = Date.now() - startTime;
-            stopMeasurementUI(duration);
-        }
-        btnTrigger.addEventListener('mouseup', finishTestTrigger);
-        btnTrigger.addEventListener('mouseleave', finishTestTrigger);
-        btnTrigger.addEventListener('touchend', finishTestTrigger);
-
-        // === 8. 데이터 처리 및 UI 갱신 ===
         function resetUI() {
             displayData.fill(0); displayTimes.fill('-'); currentIndex = 0; logBuffer = [];
             updateGraphAndTable(); progressBar.style.width = '0%'; miniTimerDisplay.innerText = "0 ms";
         }
-
         function pushData(newValue) {
-            const now = new Date();
-            const timeStr = now.toLocaleTimeString('ko-KR', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-            
-            displayData[currentIndex] = newValue;
-            displayTimes[currentIndex] = timeStr;
+            const now = new Date(); const timeStr = now.toLocaleTimeString('ko-KR', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            displayData[currentIndex] = newValue; displayTimes[currentIndex] = timeStr;
             logBuffer.push({ id: logBuffer.length+1, time: now.toLocaleString(), value: newValue, mode: currentMode });
-            
-            updateGraphAndTable();
-            currentIndex++;
-            if (currentIndex >= 10) currentIndex = 0;
+            updateGraphAndTable(); currentIndex++; if (currentIndex >= 10) currentIndex = 0;
         }
-
+        
+        // ★★★ [핵심 수정] 하이라이트 로직 수정 ★★★
         function updateGraphAndTable() {
             myChart.data.datasets[0].data = [...displayData]; myChart.update();
-            const timeCells = document.getElementById('timeRow').children;
-            const dataCells = document.getElementById('dataRow').children;
+            const timeCells = document.getElementById('timeRow').children; const dataCells = document.getElementById('dataRow').children;
             for(let i=1; i<=10; i++) {
-                timeCells[i].innerText = displayTimes[i-1];
-                dataCells[i].innerText = displayData[i-1];
-                if(i-1 === (currentIndex === 0 ? 9 : currentIndex-1)) {
+                timeCells[i].innerText = displayTimes[i-1]; dataCells[i].innerText = displayData[i-1];
+                // 수정된 조건: 현재 인덱스와 일치하고, 데이터가 하나라도 들어온 상태일 때만 하이라이트
+                if((i - 1 === currentIndex) && (logBuffer.length > 0)) {
                     timeCells[i].classList.add('active-cell'); dataCells[i].classList.add('active-cell');
                 } else {
                     timeCells[i].classList.remove('active-cell'); dataCells[i].classList.remove('active-cell');
@@ -325,19 +186,8 @@
             }
         }
 
-        // 버튼 이벤트
-        $('#btnConnect').click(connectSerial);
-        $('#btnDisconnect').click(disconnectAll);
-        
-        $('#btnExport').click(function() {
-            if (logBuffer.length === 0) return alert("저장할 데이터가 없습니다.");
-            const now = new Date();
-            const fileName = `log_${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
-            let csv = "No,Time,Pulse(ms),Mode\n";
-            logBuffer.forEach(r => { csv += `${r.id},${r.time},${r.value},${r.mode}\n`; });
-            const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = fileName + ".csv"; link.click();
-        });
+        $('#btnConnect').click(connectSerial); $('#btnDisconnect').click(disconnectAll); $('#btnReset').click(resetUI);
+        $('#btnExport').click(function() { if (logBuffer.length === 0) return alert("저장할 데이터가 없습니다."); const now = new Date(); const fileName = `log_${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`; let csv = "No,Time,Pulse(ms),Mode\n"; logBuffer.forEach(r => { csv += `${r.id},${r.time},${r.value},${r.mode}\n`; }); const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' }); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = fileName + ".csv"; link.click(); });
     </script>
 </body>
 </html>
