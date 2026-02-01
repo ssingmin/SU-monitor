@@ -1,119 +1,124 @@
-import express, { Request, Response } from 'express';
-import path from 'path';
-import { SerialPort, ReadlineParser } from 'serialport';
+import express from 'express';
+import http from 'http';
+import { SerialPort } from 'serialport';
 
 const app = express();
-app.use(express.static(path.join(__dirname, '../public')));
+const server = http.createServer(app);
+const port = 3000;
+
+app.use(express.static('public'));
 app.use(express.json());
 
-// === 1. 포트 스캔 API ===
-app.get('/api/ports', async (req: Request, res: Response) => {
+let arduinoPort: SerialPort | null = null;
+let clients: any[] = [];
+
+// ★ [핵심] 조각난 데이터를 임시로 모아둘 변수 (접착제 역할)
+let serialBuffer: string = ""; 
+
+// 1. 포트 목록
+app.get('/api/ports', async (req, res) => {
     try {
         const ports = await SerialPort.list();
         const portPaths = ports.map(p => p.path);
         res.json(portPaths);
-    } catch (err) {
-        res.status(500).json({ error: '스캔 실패' });
+    } catch (err: any) {
+        res.status(500).send(err.message);
     }
 });
 
-// === 2. SSE 설정 ===
-let clients: Response[] = [];
-app.get('/api/stream', (req: Request, res: Response) => {
+// 2. 포트 연결
+app.post('/api/connect', (req, res) => {
+    const { port } = req.body;
+    
+    if (arduinoPort && arduinoPort.isOpen) {
+        arduinoPort.close();
+    }
+
+    if (port === 'TEST (Virtual Mode)') {
+        res.json({ message: '테스트 모드 연결됨' });
+        return;
+    }
+
+    // 115200bps 설정
+    arduinoPort = new SerialPort({ 
+        path: port, 
+        baudRate: 115200, 
+        autoOpen: false 
+    });
+
+    // ★ [수정됨] 완벽한 파싱 로직 (조각 모음)
+    arduinoPort.on('data', (chunk: Buffer) => {
+        // 1. 들어온 조각을 일단 버퍼에 붙임
+        serialBuffer += chunk.toString('utf8');
+
+        // 2. 줄바꿈(\n)이 있는지 확인 (문장이 끝났는지)
+        if (serialBuffer.includes('\n')) {
+            // 줄바꿈 기준으로 쪼갬
+            const lines = serialBuffer.split(/\r?\n/);
+
+            // 마지막 조각은 아직 덜 온 것일 수 있으므로 다시 버퍼에 넣음
+            // (예: "Pulse Wid" 까지만 왔으면 다음 조각을 위해 남겨둠)
+            serialBuffer = lines.pop() || "";
+
+            // 3. 완성된 문장들만 하나씩 검사
+            for (const line of lines) {
+                if (!line.trim()) continue;
+
+                // 디버깅용 로그 (이제 깔끔한 한 줄로 보일 겁니다)
+                console.log(`📜 완성된 문장: ${line}`);
+
+                // [FALL] 감지 -> 시작 (Active Low: 누름)
+                if (line.includes('[FALL]')) {
+                    console.log("🚀 START 신호 전송 (누름)");
+                    broadcast({ type: 'START' });
+                }
+
+                // Pulse Width 감지 -> 종료 (Active Low: 뗌)
+                const pulseMatch = line.match(/Pulse Width:\s*(\d+)/);
+                if (pulseMatch) {
+                    const val = parseInt(pulseMatch[1]);
+                    console.log(`🎯 END 신호 전송 (뗌): ${val}ms`);
+                    broadcast({ type: 'END', value: val });
+                }
+            }
+        }
+    });
+
+    arduinoPort.open((err) => {
+        if (err) {
+            console.log("포트 열기 실패:", err.message);
+            res.status(500).json({ message: 'Error: ' + err.message });
+        } else {
+            console.log(`${port} 포트 열림! (115200) - 조각 모음 모드`);
+            // 연결 시 버퍼 초기화
+            serialBuffer = "";
+            res.json({ message: `${port} 연결 성공!` });
+        }
+    });
+});
+
+function broadcast(dataObj: any) {
+    const jsonStr = JSON.stringify(dataObj);
+    clients.forEach(client => {
+        client.res.write(`data: ${jsonStr}\n\n`);
+    });
+}
+
+app.get('/api/stream', (req, res) => {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     res.flushHeaders();
-    clients.push(res);
-    req.on('close', () => { clients = clients.filter(c => c !== res); });
+    
+    const clientId = Date.now();
+    const newClient = { id: clientId, res };
+    clients.push(newClient);
+
+    req.on('close', () => {
+        clients = clients.filter(c => c.id !== clientId);
+    });
 });
 
-// === 3. 연결 및 데이터 처리 (강제 재연결 로직 적용) ===
-let arduinoPort: SerialPort | null = null;
-let parser: ReadlineParser | null = null;
-let dataBuffer: number[] = []; 
-
-app.post('/api/connect', async (req: Request, res: Response) => {
-    const { port } = req.body;
-
-    // TEST 모드 처리
-    if (port.includes('TEST')) {
-        res.json({ message: 'TEST 모드 연결됨' });
-        return;
-    }
-
-    // [핵심 로직] 기존 연결이 있다면 강제로, 확실하게 끊기
-    if (arduinoPort) {
-        if (arduinoPort.isOpen) {
-            console.log('기존 포트가 열려있어 닫습니다...');
-            
-            // close()는 비동기 함수라 await으로 끝날 때까지 기다려야 함
-            await new Promise<void>((resolve) => {
-                arduinoPort?.close((err) => {
-                    if (err) console.error('포트 닫기 에러:', err);
-                    resolve();
-                });
-            });
-        }
-        arduinoPort = null; // 변수 초기화
-        
-        // [중요] OS가 포트 자원을 해제할 시간을 조금 줍니다 (0.5초)
-        await new Promise((resolve) => setTimeout(resolve, 500));
-    }
-
-    // 버퍼 초기화
-    dataBuffer = []; 
-
-    try {
-        // 새 연결 시도
-        arduinoPort = new SerialPort({
-            path: port,
-            baudRate: 115200,
-            autoOpen: false
-        });
-
-        parser = arduinoPort.pipe(new ReadlineParser({ delimiter: '\r\n' }));
-
-        // 포트 열기 시도
-        arduinoPort.open((err) => {
-            if (err) {
-                console.error('Connection Failed:', err.message);
-                // 실패 시 클라이언트에게 에러 내용 전송
-                return res.status(500).json({ message: '연결 실패 (포트 점유됨): ' + err.message });
-            }
-
-            console.log(`Connected to ${port} (Force Reconnect Success)`);
-            res.json({ message: `${port} 연결 성공! (기존 연결 정리됨)` });
-        });
-
-        // 데이터 파싱 로직
-        parser.on('data', (line: string) => {
-            const regex = /Pulse Width:\s*(\d+)/;
-            const match = line.match(regex);
-            if (match) {
-                const value = parseInt(match[1], 10);
-                if (!isNaN(value)) {
-                    dataBuffer.push(value);
-                    if (dataBuffer.length >= 10) {
-                        const csvString = dataBuffer.join(',');
-                        clients.forEach(client => client.write(`data: ${csvString}\n\n`));
-                        dataBuffer = []; 
-                    }
-                }
-            }
-        });
-
-        // 에러 핸들링 (연결 도중 선이 뽑혔을 때 등)
-        arduinoPort.on('error', (err) => {
-            console.error('Serial Port Error:', err.message);
-        });
-
-    } catch (error: any) {
-         res.status(500).json({ message: error.message });
-    }
-});
-
-const PORT = 3000;
-app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+server.listen(port, () => {
+    console.log(`Server running on http://localhost:${port}`);
 });
